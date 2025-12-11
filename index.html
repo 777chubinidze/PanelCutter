@@ -718,17 +718,21 @@
             }
             
             // Helper function to find best position in a panel (prioritize left, then top)
-            function findBestPosition(placedParts, part) {
-                const testPositions = [{x: 0, y: 0}];
+            function findBestPositionLeftFirst(placedParts, part) {
+                const testPositions = [];
+                
+                // Generate all possible positions
+                testPositions.push({x: 0, y: 0});
                 
                 placedParts.forEach(p => {
                     testPositions.push({x: p.x + p.width, y: p.y});
                     testPositions.push({x: p.x, y: p.y + p.height});
+                    testPositions.push({x: p.x + p.width, y: p.y + p.height});
                 });
                 
                 let bestPosition = null;
-                let bestX = panelWidth;
-                let bestY = panelHeight;
+                let bestX = Infinity;
+                let bestY = Infinity;
                 
                 for (const pos of testPositions) {
                     if (pos.x + part.width <= panelWidth && pos.y + part.height <= panelHeight) {
@@ -742,11 +746,11 @@
                         }
                         
                         if (!overlaps) {
-                            // Prefer lower x position (left), then lower y position (top)
+                            // Prefer leftmost position (lower x), then topmost (lower y)
                             if (pos.x < bestX || (pos.x === bestX && pos.y < bestY)) {
                                 bestX = pos.x;
                                 bestY = pos.y;
-                                bestPosition = pos;
+                                bestPosition = {x: pos.x, y: pos.y};
                             }
                         }
                     }
@@ -755,28 +759,29 @@
                 return bestPosition;
             }
             
-            // First, compact all parts within each panel (move left and top)
+            // First, compact all parts within each panel (move left first, then top)
             for (let panelIdx = 0; panelIdx < currentPanels.length; panelIdx++) {
                 const panel = currentPanels[panelIdx];
                 
-                // Sort parts by current position (top-left first)
-                panel.parts.sort((a, b) => {
-                    if (a.y !== b.y) return a.y - b.y;
-                    return a.x - b.x;
+                if (panel.parts.length === 0) continue;
+                
+                // Sort parts by area (largest first) for better repacking
+                const sortedParts = [...panel.parts].sort((a, b) => {
+                    const areaA = a.width * a.height;
+                    const areaB = b.width * b.height;
+                    return areaB - areaA;
                 });
                 
-                // Reposition each part to the leftmost and topmost available position
+                // Repack all parts with left-first priority
                 const repositionedParts = [];
-                for (const part of panel.parts) {
-                    const bestPos = findBestPosition(repositionedParts, part);
+                for (const part of sortedParts) {
+                    const bestPos = findBestPositionLeftFirst(repositionedParts, part);
                     if (bestPos) {
                         repositionedParts.push({
                             ...part,
                             x: bestPos.x,
                             y: bestPos.y
                         });
-                    } else {
-                        repositionedParts.push(part);
                     }
                 }
                 panel.parts = repositionedParts;
@@ -796,7 +801,7 @@
                     const part = nextPanel.parts[partIdx];
                     
                     // Try original orientation
-                    let bestPosition = findBestPosition(currentPanel.parts, part);
+                    let bestPosition = findBestPositionLeftFirst(currentPanel.parts, part);
                     
                     if (bestPosition) {
                         // Move the part
@@ -814,7 +819,7 @@
                             width: part.height, 
                             height: part.width 
                         };
-                        bestPosition = findBestPosition(currentPanel.parts, rotatedPart);
+                        bestPosition = findBestPositionLeftFirst(currentPanel.parts, rotatedPart);
                         
                         if (bestPosition) {
                             // Move the part (rotated)
@@ -842,8 +847,6 @@
             
             panelCount = currentPanels.length;
             displayLayout(currentPanels, panelWidth, panelHeight);
-            
-            // No alert when called automatically
         }
         
         function displayLayout(panels, panelWidth, panelHeight) {
