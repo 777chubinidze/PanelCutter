@@ -592,7 +592,10 @@
             
             // Automatically run additional optimization after initial generation
             try {
-                optimizeAgain();
+                const optimized = optimizeAgain();
+                if (optimized) {
+                    alert('Layout generated and optimized! Parts have been compacted to the left and top.');
+                }
             } catch (error) {
                 console.error('Optimization error:', error);
                 displayLayout(panels, panelWidth, panelHeight);
@@ -707,14 +710,14 @@
         
         function optimizeAgain() {
             if (currentPanels.length === 0 || panelCount === 0) {
-                return; // Silently return if no layout exists
+                return false; // Return false if no layout exists
             }
             
             const panelWidth = parseFloat(document.getElementById('panelWidth').value);
             const panelHeight = parseFloat(document.getElementById('panelHeight').value);
             
             if (!panelWidth || !panelHeight || panelWidth <= 0 || panelHeight <= 0) {
-                return; // Silently return if invalid dimensions
+                return false; // Return false if invalid dimensions
             }
             
             // Helper function to find best position in a panel (prioritize left, then top)
@@ -847,6 +850,8 @@
             
             panelCount = currentPanels.length;
             displayLayout(currentPanels, panelWidth, panelHeight);
+            
+            return true; // Return true when optimization completes
         }
         
         function displayLayout(panels, panelWidth, panelHeight) {
