@@ -293,7 +293,7 @@
             </div>
             
             <div class="info-box">
-                <strong>**Layout Method:**</strong> Uses a smart 2D bin packing algorithm with automatic rotation. Parts are sorted by area (largest first) and placed at the lowest available position from left to right, top to bottom. If a part doesn't fit, the algorithm automatically tries rotating it (swapping width and height). This minimizes waste space. Rotated parts are marked with ↻ symbol. <strong>**Maximum Panels:**</strong> This tool is limited to **50 panels**.<br><br>
+                <strong>**Layout Method:**</strong> Uses a smart 2D bin packing algorithm with automatic rotation and sequential optimization. After initial layout, the algorithm performs multiple optimization passes: for each panel X, it tries to move ALL parts from panel X+1 to panel X (trying both orientations). This process repeats until no more parts can be moved. Empty panels are automatically removed. Rotated parts are marked with ↻ symbol. <strong>**Maximum Panels:**</strong> This tool is limited to **50 panels**.<br><br>
                 <strong>**CSV Format:**</strong> Import a CSV file with 3 columns: Width, Height, Qty (e.g., "50,100,5"). Header row is optional.
             </div>
         </div>
@@ -321,6 +321,7 @@
     <script>
         let parts = [];
         let panelCount = 0;
+        let currentPanels = []; // Store current panels for re-optimization
         
         function addPart() {
             const width = parseFloat(document.getElementById('partWidth').value);
@@ -582,7 +583,262 @@
             }
             
             panelCount = panels.length;
-            displayLayout(panels, panelWidth, panelHeight);
+            
+            // Optimization phase: Move parts from last panels to earlier panels
+            optimizePanels(panels, panelWidth, panelHeight);
+            
+            panelCount = panels.length;
+            currentPanels = panels; // Store for re-optimization
+            
+            // Automatically run optimize again after initial generation
+            optimizeAgain();
+        }
+        
+        function optimizePanels(panels, panelWidth, panelHeight) {
+            if (panels.length <= 1) return;
+            
+            // Helper function to find best position in a panel
+            function findBestPosition(placedParts, part) {
+                const testPositions = [{x: 0, y: 0}];
+                
+                placedParts.forEach(p => {
+                    testPositions.push({x: p.x + p.width, y: p.y});
+                    testPositions.push({x: p.x, y: p.y + p.height});
+                });
+                
+                let bestPosition = null;
+                let bestY = panelHeight;
+                let bestX = panelWidth;
+                
+                for (const pos of testPositions) {
+                    if (pos.x + part.width <= panelWidth && pos.y + part.height <= panelHeight) {
+                        let overlaps = false;
+                        for (const p of placedParts) {
+                            if (!(pos.x + part.width <= p.x || pos.x >= p.x + p.width ||
+                                  pos.y + part.height <= p.y || pos.y >= p.y + p.height)) {
+                                overlaps = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!overlaps) {
+                            if (pos.y < bestY || (pos.y === bestY && pos.x < bestX)) {
+                                bestY = pos.y;
+                                bestX = pos.x;
+                                bestPosition = pos;
+                            }
+                        }
+                    }
+                }
+                
+                return bestPosition;
+            }
+            
+            // Process each panel X and try to move parts from panel X+1 to panel X
+            let changed = true;
+            while (changed) {
+                changed = false;
+                
+                for (let x = 0; x < panels.length - 1; x++) {
+                    const currentPanel = panels[x];
+                    const nextPanel = panels[x + 1];
+                    
+                    if (!nextPanel || nextPanel.parts.length === 0) continue;
+                    
+                    // Try to move each part from X+1 panel to X panel
+                    for (let partIdx = nextPanel.parts.length - 1; partIdx >= 0; partIdx--) {
+                        const part = nextPanel.parts[partIdx];
+                        let moved = false;
+                        
+                        // Try original orientation
+                        let bestPosition = findBestPosition(currentPanel.parts, part);
+                        
+                        if (bestPosition) {
+                            // Move the part
+                            currentPanel.parts.push({
+                                ...part,
+                                x: bestPosition.x,
+                                y: bestPosition.y
+                            });
+                            nextPanel.parts.splice(partIdx, 1);
+                            moved = true;
+                            changed = true;
+                        } else {
+                            // Try rotated orientation (swap width and height)
+                            const rotatedPart = { 
+                                ...part,
+                                width: part.height, 
+                                height: part.width 
+                            };
+                            bestPosition = findBestPosition(currentPanel.parts, rotatedPart);
+                            
+                            if (bestPosition) {
+                                // Move the part (rotated)
+                                currentPanel.parts.push({
+                                    ...part,
+                                    width: rotatedPart.width,
+                                    height: rotatedPart.height,
+                                    x: bestPosition.x,
+                                    y: bestPosition.y,
+                                    rotated: !part.rotated
+                                });
+                                nextPanel.parts.splice(partIdx, 1);
+                                moved = true;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+                
+                // Remove empty panels
+                for (let i = panels.length - 1; i >= 0; i--) {
+                    if (panels[i].parts.length === 0) {
+                        panels.splice(i, 1);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        
+        function optimizeAgain() {
+            if (currentPanels.length === 0 || panelCount === 0) {
+                return; // Silently return if no layout exists
+            }
+            
+            const panelWidth = parseFloat(document.getElementById('panelWidth').value);
+            const panelHeight = parseFloat(document.getElementById('panelHeight').value);
+            
+            if (!panelWidth || !panelHeight || panelWidth <= 0 || panelHeight <= 0) {
+                return; // Silently return if invalid dimensions
+            }
+            
+            // Helper function to find best position in a panel (prioritize left, then top)
+            function findBestPosition(placedParts, part) {
+                const testPositions = [{x: 0, y: 0}];
+                
+                placedParts.forEach(p => {
+                    testPositions.push({x: p.x + p.width, y: p.y});
+                    testPositions.push({x: p.x, y: p.y + p.height});
+                });
+                
+                let bestPosition = null;
+                let bestX = panelWidth;
+                let bestY = panelHeight;
+                
+                for (const pos of testPositions) {
+                    if (pos.x + part.width <= panelWidth && pos.y + part.height <= panelHeight) {
+                        let overlaps = false;
+                        for (const p of placedParts) {
+                            if (!(pos.x + part.width <= p.x || pos.x >= p.x + p.width ||
+                                  pos.y + part.height <= p.y || pos.y >= p.y + p.height)) {
+                                overlaps = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!overlaps) {
+                            // Prefer lower x position (left), then lower y position (top)
+                            if (pos.x < bestX || (pos.x === bestX && pos.y < bestY)) {
+                                bestX = pos.x;
+                                bestY = pos.y;
+                                bestPosition = pos;
+                            }
+                        }
+                    }
+                }
+                
+                return bestPosition;
+            }
+            
+            // First, compact all parts within each panel (move left and top)
+            for (let panelIdx = 0; panelIdx < currentPanels.length; panelIdx++) {
+                const panel = currentPanels[panelIdx];
+                
+                // Sort parts by current position (top-left first)
+                panel.parts.sort((a, b) => {
+                    if (a.y !== b.y) return a.y - b.y;
+                    return a.x - b.x;
+                });
+                
+                // Reposition each part to the leftmost and topmost available position
+                const repositionedParts = [];
+                for (const part of panel.parts) {
+                    const bestPos = findBestPosition(repositionedParts, part);
+                    if (bestPos) {
+                        repositionedParts.push({
+                            ...part,
+                            x: bestPos.x,
+                            y: bestPos.y
+                        });
+                    } else {
+                        repositionedParts.push(part);
+                    }
+                }
+                panel.parts = repositionedParts;
+            }
+            
+            // Then, try to move parts from panel X+1 to panel X
+            let moved = 0;
+            
+            for (let x = 0; x < currentPanels.length - 1; x++) {
+                const currentPanel = currentPanels[x];
+                const nextPanel = currentPanels[x + 1];
+                
+                if (!nextPanel || nextPanel.parts.length === 0) continue;
+                
+                // Try to move each part from X+1 panel to X panel
+                for (let partIdx = nextPanel.parts.length - 1; partIdx >= 0; partIdx--) {
+                    const part = nextPanel.parts[partIdx];
+                    
+                    // Try original orientation
+                    let bestPosition = findBestPosition(currentPanel.parts, part);
+                    
+                    if (bestPosition) {
+                        // Move the part
+                        currentPanel.parts.push({
+                            ...part,
+                            x: bestPosition.x,
+                            y: bestPosition.y
+                        });
+                        nextPanel.parts.splice(partIdx, 1);
+                        moved++;
+                    } else {
+                        // Try rotated orientation (swap width and height)
+                        const rotatedPart = { 
+                            ...part,
+                            width: part.height, 
+                            height: part.width 
+                        };
+                        bestPosition = findBestPosition(currentPanel.parts, rotatedPart);
+                        
+                        if (bestPosition) {
+                            // Move the part (rotated)
+                            currentPanel.parts.push({
+                                ...part,
+                                width: rotatedPart.width,
+                                height: rotatedPart.height,
+                                x: bestPosition.x,
+                                y: bestPosition.y,
+                                rotated: !part.rotated
+                            });
+                            nextPanel.parts.splice(partIdx, 1);
+                            moved++;
+                        }
+                    }
+                }
+            }
+            
+            // Remove empty panels
+            for (let i = currentPanels.length - 1; i >= 0; i--) {
+                if (currentPanels[i].parts.length === 0) {
+                    currentPanels.splice(i, 1);
+                }
+            }
+            
+            panelCount = currentPanels.length;
+            displayLayout(currentPanels, panelWidth, panelHeight);
+            
+            // No alert when called automatically
         }
         
         function displayLayout(panels, panelWidth, panelHeight) {
