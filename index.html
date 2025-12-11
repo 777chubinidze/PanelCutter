@@ -410,6 +410,9 @@
                 const text = e.target.result;
                 const lines = text.split('\n').filter(line => line.trim());
                 
+                // Clear existing parts before import
+                parts = [];
+                
                 let imported = 0;
                 let skipped = 0;
                 
@@ -592,10 +595,7 @@
             
             // Automatically run additional optimization after initial generation
             try {
-                const optimized = optimizeAgain();
-                if (optimized) {
-                    alert('Layout generated and optimized! Parts have been compacted to the left and top.');
-                }
+                optimizeAgain();
             } catch (error) {
                 console.error('Optimization error:', error);
                 displayLayout(panels, panelWidth, panelHeight);
