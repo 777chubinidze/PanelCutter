@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Cutting Layout Optimizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #17a2b8;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 15px;
+            height: 42px;
+        }
+        
+        .parts-input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .parts-input-row input {
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            height: 38px;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 15px;
+            height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-primary {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            width: 100%;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .parts-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .part-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: white;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .part-info {
+            font-size: 14px;
+        }
+        
+        .part-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            height: 30px;
+            font-weight: 500;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #856404;
+        }
+        
+        .visual-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: 600px;
+        }
+        
+        .status-box {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            color: #0c5460;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        
+        .canvas-container {
+            border: 3px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            background: white;
+            margin-top: 20px;
+            overflow: auto;
+        }
+        
+        .panel-display {
+            margin-bottom: 30px;
+        }
+        
+        .panel-header {
+            text-align: center;
+            color: #17a2b8;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .panel-svg {
+            border: 3px solid #333;
+            background: #fafafa;
+        }
+        
+        .part-rect {
+            fill: #17a2b8;
+            stroke: #333;
+            stroke-width: 2;
+            opacity: 0.7;
+        }
+        
+        .part-text {
+            fill: white;
+            font-weight: bold;
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel">
+            <div class="panel-title">
+                📐 Panel & Parts Input (cm)
+            </div>
+            
+            <div class="input-group">
+                <label>Full Panel Width (e.g., 200):</label>
+                <input type="number" id="panelWidth" value="200" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label>Full Panel Height (e.g., 300):</label>
+                <input type="number" id="panelHeight" value="300" min="1">
+            </div>
+            
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+            
+            <h3 style="margin-bottom: 15px; font-size: 16px;">Add Parts to Cut</h3>
+            
+            <div class="input-group">
+                <label>Width:</label>
+                <input type="number" id="partWidth" placeholder="W" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label>Height:</label>
+                <input type="number" id="partHeight" placeholder="H" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label>Qty:</label>
+                <input type="number" id="partQty" value="1" min="1">
+            </div>
+            
+            <button class="btn btn-primary" onclick="addPart()" style="width: 100%;">➕ Add Part</button>
+            
+            <div style="margin-top: 15px;">
+                <label class="btn btn-primary" style="width: 100%; cursor: pointer; margin: 0;">
+                    📂 Import from CSV
+                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="importCSV(event)">
+                </label>
+            </div>
+            
+            <h3 style="margin: 20px 0 10px 0; font-size: 16px;">Parts List:</h3>
+            <div class="parts-list" id="partsList">
+                <p style="color: #999; text-align: center;">No parts added yet</p>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button class="btn btn-success" onclick="generateLayout()">🔧 Generate Layout</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="clearParts()">🗑️ Clear</button>
+                    <button class="btn btn-primary" onclick="exportPartsCSV()" style="background: #007bff;">📊 Export Parts CSV</button>
+                </div>
+                <button class="btn btn-danger" onclick="exportLayout()" style="width: 100%; margin-top: 10px;">📄 Export PDF</button>
+            </div>
+            
+            <div class="info-box">
+                <strong>**Layout Method:**</strong> Uses a smart 2D bin packing algorithm with automatic rotation. Parts are sorted by area (largest first) and placed at the lowest available position from left to right, top to bottom. If a part doesn't fit, the algorithm automatically tries rotating it (swapping width and height). This minimizes waste space. Rotated parts are marked with ↻ symbol. <strong>**Maximum Panels:**</strong> This tool is limited to **50 panels**.<br><br>
+                <strong>**CSV Format:**</strong> Import a CSV file with 3 columns: Width, Height, Qty (e.g., "50,100,5"). Header row is optional.
+            </div>
+        </div>
+        
+        <div class="visual-panel">
+            <div class="panel-title">
+                🎨 Visual Cutting Layout
+            </div>
+            
+            <div class="status-box" id="statusBox">
+                Ready to generate layout...
+            </div>
+            
+            <div class="canvas-container" id="layoutContainer">
+                <div class="panel-display">
+                    <div class="panel-header">Panel 1 (Example)</div>
+                    <svg width="360" height="540" class="panel-svg">
+                        <rect x="0" y="0" width="360" height="540" fill="none" stroke="#333" stroke-width="3"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let parts = [];
+        let panelCount = 0;
+        
+        function addPart() {
+            const width = parseFloat(document.getElementById('partWidth').value);
+            const height = parseFloat(document.getElementById('partHeight').value);
+            const qty = parseInt(document.getElementById('partQty').value);
+            
+            if (!width || !height || !qty || width <= 0 || height <= 0 || qty <= 0) {
+                alert('Please enter valid width, height, and quantity');
+                return;
+            }
+            
+            for (let i = 0; i < qty; i++) {
+                parts.push({ width, height, id: Date.now() + i });
+            }
+            
+            updatePartsList();
+            document.getElementById('partWidth').value = '';
+            document.getElementById('partHeight').value = '';
+            document.getElementById('partQty').value = '1';
+        }
+        
+        function updatePartsList() {
+            const container = document.getElementById('partsList');
+            
+            if (parts.length === 0) {
+                container.innerHTML = '<p style="color: #999; text-align: center;">No parts added yet</p>';
+                return;
+            }
+            
+            const grouped = {};
+            parts.forEach(part => {
+                const key = `${part.width}x${part.height}`;
+                grouped[key] = (grouped[key] || 0) + 1;
+            });
+            
+            container.innerHTML = Object.entries(grouped).map(([size, count]) => `
+                <div class="part-item">
+                    <span class="part-info">${size} cm × ${count}</span>
+                    <button class="part-remove" onclick="removePart('${size}')">Remove</button>
+                </div>
+            `).join('');
+        }
+        
+        function removePart(sizeKey) {
+            const [width, height] = sizeKey.split('x').map(Number);
+            const index = parts.findIndex(p => p.width === width && p.height === height);
+            if (index !== -1) {
+                parts.splice(index, 1);
+                updatePartsList();
+            }
+        }
+        
+        function clearParts() {
+            parts = [];
+            panelCount = 0;
+            updatePartsList();
+            
+            // Reset layout display
+            const container = document.getElementById('layoutContainer');
+            const statusBox = document.getElementById('statusBox');
+            
+            statusBox.textContent = 'Ready to generate layout...';
+            container.innerHTML = `
+                <div class="panel-display">
+                    <div class="panel-header">Panel 1 (Example)</div>
+                    <svg width="360" height="540" class="panel-svg">
+                        <rect x="0" y="0" width="360" height="540" fill="none" stroke="#333" stroke-width="3"/>
+                    </svg>
+                </div>
+            `;
+            
+            // Reset input fields
+            document.getElementById('panelWidth').value = '200';
+            document.getElementById('panelHeight').value = '300';
+            document.getElementById('partWidth').value = '';
+            document.getElementById('partHeight').value = '';
+            document.getElementById('partQty').value = '1';
+        }
+        
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(line => line.trim());
+                
+                let imported = 0;
+                let skipped = 0;
+                
+                lines.forEach((line, index) => {
+                    // Skip header row if it exists
+                    if (index === 0 && (line.toLowerCase().includes('width') || line.toLowerCase().includes('height'))) {
+                        return;
+                    }
+                    
+                    const values = line.split(',').map(v => v.trim());
+                    
+                    if (values.length >= 3) {
+                        const width = parseFloat(values[0]);
+                        const height = parseFloat(values[1]);
+                        const qty = parseInt(values[2]);
+                        
+                        if (width > 0 && height > 0 && qty > 0) {
+                            for (let i = 0; i < qty; i++) {
+                                parts.push({ width, height, id: Date.now() + imported + i });
+                            }
+                            imported += qty;
+                        } else {
+                            skipped++;
+                        }
+                    } else {
+                        skipped++;
+                    }
+                });
+                
+                updatePartsList();
+                
+                let message = `Imported ${imported} part(s) successfully!`;
+                if (skipped > 0) {
+                    message += `\n${skipped} row(s) were skipped (invalid data).`;
+                }
+                alert(message);
+            };
+            
+            reader.readAsText(file);
+            event.target.value = ''; // Reset file input
+        }
+        
+        function generateLayout() {
+            if (parts.length === 0) {
+                alert('Please add parts first');
+                return;
+            }
+            
+            const panelWidth = parseFloat(document.getElementById('panelWidth').value);
+            const panelHeight = parseFloat(document.getElementById('panelHeight').value);
+            
+            if (!panelWidth || !panelHeight || panelWidth <= 0 || panelHeight <= 0) {
+                alert('Please enter valid panel dimensions');
+                return;
+            }
+            
+            // Sort parts by area (descending) for better packing
+            const sortedParts = [...parts].sort((a, b) => (b.width * b.height) - (a.width * a.height));
+            
+            const panels = [];
+            
+            // Helper function to find best position in a panel
+            function findBestPosition(placedParts, part) {
+                const testPositions = [{x: 0, y: 0}];
+                
+                // Add positions at the edges of existing parts
+                placedParts.forEach(p => {
+                    testPositions.push({x: p.x + p.width, y: p.y});
+                    testPositions.push({x: p.x, y: p.y + p.height});
+                });
+                
+                let bestPosition = null;
+                let bestY = panelHeight;
+                let bestX = panelWidth;
+                
+                for (const pos of testPositions) {
+                    if (pos.x + part.width <= panelWidth && pos.y + part.height <= panelHeight) {
+                        // Check if this position overlaps with any existing part
+                        let overlaps = false;
+                        for (const p of placedParts) {
+                            if (!(pos.x + part.width <= p.x || pos.x >= p.x + p.width ||
+                                  pos.y + part.height <= p.y || pos.y >= p.y + p.height)) {
+                                overlaps = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!overlaps) {
+                            // Prefer lower y position, then lower x position
+                            if (pos.y < bestY || (pos.y === bestY && pos.x < bestX)) {
+                                bestY = pos.y;
+                                bestX = pos.x;
+                                bestPosition = pos;
+                            }
+                        }
+                    }
+                }
+                
+                return bestPosition;
+            }
+            
+            // Place each part
+            for (const part of sortedParts) {
+                let placed = false;
+                
+                // Try to fit in existing panels first (from first to last)
+                // Try both orientations: original and rotated
+                for (let i = 0; i < panels.length && !placed; i++) {
+                    // Try original orientation
+                    let bestPosition = findBestPosition(panels[i].parts, part);
+                    
+                    if (bestPosition) {
+                        panels[i].parts.push({
+                            ...part,
+                            x: bestPosition.x,
+                            y: bestPosition.y
+                        });
+                        placed = true;
+                    } else {
+                        // Try rotated orientation (swap width and height)
+                        const rotatedPart = { width: part.height, height: part.width };
+                        bestPosition = findBestPosition(panels[i].parts, rotatedPart);
+                        
+                        if (bestPosition) {
+                            panels[i].parts.push({
+                                ...part,
+                                width: rotatedPart.width,
+                                height: rotatedPart.height,
+                                x: bestPosition.x,
+                                y: bestPosition.y,
+                                rotated: true
+                            });
+                            placed = true;
+                        }
+                    }
+                }
+                
+                // If not placed, create new panel
+                if (!placed) {
+                    if (panels.length >= 50) {
+                        alert('Maximum 50 panels reached! Some parts may not fit.');
+                        break;
+                    }
+                    
+                    // Try original orientation
+                    if (part.width <= panelWidth && part.height <= panelHeight) {
+                        panels.push({
+                            parts: [{
+                                ...part,
+                                x: 0,
+                                y: 0
+                            }],
+                            rows: []
+                        });
+                    }
+                    // Try rotated orientation
+                    else if (part.height <= panelWidth && part.width <= panelHeight) {
+                        panels.push({
+                            parts: [{
+                                ...part,
+                                width: part.height,
+                                height: part.width,
+                                x: 0,
+                                y: 0,
+                                rotated: true
+                            }],
+                            rows: []
+                        });
+                    }
+                }
+            }
+            
+            panelCount = panels.length;
+            displayLayout(panels, panelWidth, panelHeight);
+        }
+        
+        function displayLayout(panels, panelWidth, panelHeight) {
+            const container = document.getElementById('layoutContainer');
+            const statusBox = document.getElementById('statusBox');
+            
+            statusBox.textContent = `Layout generated: ${panelCount} panel(s) used`;
+            
+            // Calculate scale for screen display
+            const scale = Math.min(500 / panelWidth, 700 / panelHeight, 2);
+            const displayWidth = panelWidth * scale;
+            const displayHeight = panelHeight * scale;
+            
+            // Calculate scale for print (A4 landscape is 297mm x 210mm, 2 panels per page)
+            // Use 135mm x 180mm per panel (with margins and gap)
+            const printPanelWidth = 135; // mm
+            const printPanelHeight = 180; // mm
+            const printScale = Math.min(printPanelWidth / panelWidth, printPanelHeight / panelHeight);
+            const printWidth = panelWidth * printScale;
+            const printHeight = panelHeight * printScale;
+            
+            // Group panels in pairs for printing (2 per page)
+            const panelPairs = [];
+            for (let i = 0; i < panels.length; i += 2) {
+                panelPairs.push(panels.slice(i, i + 2));
+            }
+            
+            container.innerHTML = panelPairs.map((pair, pageIndex) => `
+                <div class="print-page">
+                    ${pair.map((panel, pairIndex) => {
+                        const index = pageIndex * 2 + pairIndex;
+                        const allParts = panel.parts;
+                        
+                        return `
+                            <div class="panel-display">
+                                <div class="panel-header">Panel ${index + 1}</div>
+                                <svg width="${displayWidth}" height="${displayHeight}" 
+                                     viewBox="0 0 ${displayWidth} ${displayHeight}"
+                                     preserveAspectRatio="xMidYMid meet"
+                                     class="panel-svg">
+                                    <rect x="0" y="0" width="${displayWidth}" height="${displayHeight}" 
+                                          fill="none" stroke="#333" stroke-width="3"/>
+                                    ${allParts.map((part, i) => {
+                                        const label = `${part.width}×${part.height}`;
+                                        const labelWidth = label.length * 7;
+                                        const scaledPartWidth = part.width * scale;
+                                        const scaledPartHeight = part.height * scale;
+                                        const centerX = (part.x + part.width / 2) * scale;
+                                        const centerY = (part.y + part.height / 2) * scale;
+                                        const needsRotation = labelWidth > scaledPartWidth && scaledPartHeight > labelWidth;
+                                        
+                                        return `
+                                        <rect class="part-rect" 
+                                              x="${part.x * scale}" 
+                                              y="${part.y * scale}" 
+                                              width="${scaledPartWidth}" 
+                                              height="${scaledPartHeight}"/>
+                                        <text class="part-text" 
+                                              x="${centerX}" 
+                                              y="${centerY}"
+                                              ${needsRotation ? `transform="rotate(-90 ${centerX} ${centerY})"` : ''}>
+                                            ${label}
+                                        </text>
+                                    `}).join('')}
+                                </svg>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `).join('');
+            
+            // Add print-specific sizing
+            const style = document.createElement('style');
+            style.id = 'print-sizing';
+            style.textContent = `
+                @media print {
+                    .panel-svg {
+                        width: ${printWidth}mm !important;
+                        height: ${printHeight}mm !important;
+                    }
+                }
+            `;
+            const oldStyle = document.getElementById('print-sizing');
+            if (oldStyle) oldStyle.remove();
+            document.head.appendChild(style);
+        }
+        
+        function exportLayout() {
+            if (panelCount === 0) {
+                alert('Please generate a layout first');
+                return;
+            }
+            window.print();
+        }
+        
+        function exportPartsCSV() {
+            if (parts.length === 0) {
+                alert('No parts to export');
+                return;
+            }
+            
+            // Group parts by dimensions
+            const grouped = {};
+            parts.forEach(part => {
+                const key = `${part.width},${part.height}`;
+                grouped[key] = (grouped[key] || 0) + 1;
+            });
+            
+            // Create CSV content
+            let csvContent = "Width,Height,Qty\n";
+            Object.entries(grouped).forEach(([key, qty]) => {
+                csvContent += `${key},${qty}\n`;
+            });
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'parts_list.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+    
+    <style media="print">
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        
+        body {
+            background: white;
+            padding: 0;
+        }
+        
+        .container {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+        
+        .panel:first-child {
+            display: none;
+        }
+        
+        .visual-panel {
+            padding: 0;
+            box-shadow: none;
+        }
+        
+        .panel-title {
+            display: none;
+        }
+        
+        .status-box {
+            display: none;
+        }
+        
+        .canvas-container {
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .print-page {
+            page-break-after: always;
+            page-break-inside: avoid;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10mm;
+            min-height: 100vh;
+            align-items: center;
+        }
+        
+        .print-page:last-child {
+            page-break-after: auto;
+        }
+        
+        .panel-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .panel-header {
+            font-size: 16px;
+            margin-bottom: 10px;
+            page-break-after: avoid;
+        }
+        
+        .panel-svg {
+            max-width: 100%;
+            max-height: calc(100vh - 40px);
+            width: auto !important;
+            height: auto !important;
+        }
+    </style>
+</body>
+</html>
