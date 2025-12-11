@@ -590,8 +590,13 @@
             panelCount = panels.length;
             currentPanels = panels; // Store for re-optimization
             
-            // Automatically run optimize again after initial generation
-            optimizeAgain();
+            // Automatically run additional optimization after initial generation
+            try {
+                optimizeAgain();
+            } catch (error) {
+                console.error('Optimization error:', error);
+                displayLayout(panels, panelWidth, panelHeight);
+            }
         }
         
         function optimizePanels(panels, panelWidth, panelHeight) {
